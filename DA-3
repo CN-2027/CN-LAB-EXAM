@@ -1,1 +1,279 @@
+EXP 1: IP ADDRESS CONVERSION (BINARY TO DECIMAL & DECIMAL TO BINARY)
 
+AIM - To write and execute a Python program that converts an IP address from decimal format to binary format, and from binary format to decimal format, based on user input.
+
+ALGORITHM – 
+Step 1: START
+Step 2: PRINT a menu with two options:
+•	Option 1: Decimal to Binary
+•	Option 2: Binary to Decimal
+Step 3: READ the user's choice (1 or 2).
+Step 4: READ the IP_address as a text string from the user.
+Step 5: SPLIT the IP_address by the dot character (.) and store the resulting four parts in a list called octets.
+Step 6: IF choice is equal to 1 (Decimal to Binary), THEN:
+a.	For each part in octets:
+i.	Convert the text part into an integer.
+ii.	Convert that integer into an 8-bit binary format.
+b.	JOIN the new binary parts together with a dot (.).
+c.	PRINT the resulting binary IP address.
+Step 7: ELSE IF choice is equal to 2 (Binary to Decimal), THEN:
+a.	For each part in octets:
+i.	Convert the binary text part (Base-2) into a standard decimal integer (Base-10).
+ii.	Convert that integer back into standard text.
+b.	JOIN the new decimal parts together with a dot (.).
+c.	PRINT the resulting decimal IP address.
+Step 8: ELSE: PRINT "Invalid choice" error message.
+Step 9: STOP
+
+CODE –
+def convert_ip():
+    print("IP Address Converter")
+    print("1. Decimal to Binary (e.g., 192.168.1.1)")
+    print("2. Binary to Decimal (e.g., 11000000.10101000.00000001.00000001)")
+    
+    choice = input("Choose an option (1 or 2): ")
+    ip = input("Enter the IP address: ")
+
+    if choice == '1':
+        # Decimal to Binary
+        octets = ip.split('.')
+        binary_ip = '.'.join([f"{int(x):08b}" for x in octets])
+        print(f"\nResult: {binary_ip}")
+        
+    elif choice == '2':
+        # Binary to Decimal
+        octets = ip.split('.')
+        decimal_ip = '.'.join([str(int(x, 2)) for x in octets])
+        print(f"\nResult: {decimal_ip}")
+        
+    else:
+        print("\nInvalid choice. Please run the program again.")
+
+# Run the program
+convert_ip()
+
+
+EXP 2: IMPLEMENTATION OF LINKED STATE & DISTANCE VECTOR ROUTING PROTOCOL
+
+AIM - To implement and analyze Distance Vector and Link State routing algorithms to find the shortest path in a network.
+
+ALGORITHM – 
+Algorithm for Distance Vector Routing
+Step 1: START
+Step 2: READ the total number of nodes in the network as N.
+Step 3: INITIALIZE an N x N matrix called graph to store the network link costs.
+Step 4: READ the link costs from the user row by row (using 999 to represent infinity for nodes that are not directly connected).
+Step 5: Repeat for each intermediate node k from 0 to N-1:
+Step 6: Repeat for each source node i from 0 to N-1:
+Step 7: Repeat for each destination node j from 0 to N-1:
+Step 8: IF graph[i][k] + graph[k][j] < graph[i][j], THEN:
+Update graph[i][j] = graph[i][k] + graph[k][j]
+Step 9: PRINT the final graph rows, which represent the updated routing tables for every node.
+Step 10: STOP
+
+Algorithm for Link State Routing (Dijkstra's)
+Step 1: START
+Step 2: READ the total number of nodes as N.
+Step 3: READ the link costs into an N x N matrix called graph (using 999 for infinity).
+Step 4: READ the source node from the user.
+Step 5: INITIALIZE an array called distances and copy the direct link costs from the source node into it.
+Step 6: INITIALIZE a boolean array called visited of size N to FALSE, and set visited[source] = TRUE.
+Step 7: Repeat the following steps N-1 times:
+Step 8:     Find an unvisited node u that has the smallest value in the distances array.
+Step 9:     Mark visited[u] = TRUE.
+Step 10:     For every node v from 0 to N-1:
+Step 11:         IF visited[v] is FALSE AND distances[u] + graph[u][v] < distances[v], THEN:
+                    Update distances[v] = distances[u] + graph[u][v]
+Step 12: PRINT the final distances array, which contains the shortest path from the source to all other nodes.
+Step 13: STOP
+
+CODE – 
+DISTANCE VECTOR ROUTING
+def distance_vector():
+    print("--- DISTANCE VECTOR ROUTING ---")
+    nodes = int(input("Enter number of nodes: "))
+    
+    print("Enter the cost matrix row by row.")
+    print("(Use 999 for 'infinity' if there is no direct link between nodes):")
+    
+    # 1. Take user input to build the network graph
+    graph = []
+    for i in range(nodes):
+        row = list(map(int, input(f"Row {i}: ").split()))
+        graph.append(row)
+
+    # 2. The Core Logic 
+    for k in range(nodes):         # k = intermediate node
+        for i in range(nodes):     # i = source node
+            for j in range(nodes): # j = destination node
+                # If going through 'k' is shorter, update the distance!
+                if graph[i][k] + graph[k][j] < graph[i][j]:
+                    graph[i][j] = graph[i][k] + graph[k][j]
+
+    # 3. Print the final routing tables
+    print("\n--- FINAL DISTANCE VECTORS ---")
+    for i in range(nodes):
+        print(f"Routing table for Node {i}: {graph[i]}")
+
+# Run the program
+distance_vector()
+
+LINK STATE ROUTING
+def link_state():
+    print("--- LINK STATE ROUTING (DIJKSTRA) ---")
+    nodes = int(input("Enter number of nodes: "))
+    
+    print("Enter the cost matrix row by row.")
+    print("(Use 999 for 'infinity' if there is no direct link):")
+    
+    # 1. Take user input for the graph
+    graph = []
+    for i in range(nodes):
+        row = list(map(int, input(f"Row {i}: ").split()))
+        graph.append(row)
+
+    source = int(input("Enter the source node (e.g., 0): "))
+
+    # 2. Setup initial distances and visited list
+    distances = graph[source].copy()
+    visited = [False] * nodes
+    visited[source] = True
+
+    # 3. The Core Logic (Dijkstra)
+    for _ in range(nodes - 1):
+        # Step A: Find the unvisited node with the smallest distance
+        min_dist = 999
+        u = -1
+        for i in range(nodes):
+            if not visited[i] and distances[i] < min_dist:
+                min_dist = distances[i]
+                u = i
+                
+        if u == -1: 
+            break # All reachable nodes are visited
+            
+        visited[u] = True
+
+        # Step B: Update the distances of the neighbors of that node
+        for v in range(nodes):
+            if not visited[v] and distances[u] + graph[u][v] < distances[v]:
+                distances[v] = distances[u] + graph[u][v]
+
+    # 4. Print the shortest paths
+    print(f"\n--- SHORTEST PATHS FROM NODE {source} ---")
+    for i in range(nodes):
+        print(f"Distance to Node {i} = {distances[i]}")
+
+# Run the program
+link_state()
+
+
+EXP 3: CONSTRUCTION OF SUBNET
+
+AIM - To implement a Variable Length Subnet Masking (VLSM) calculator that dynamically allocates IP address blocks from a primary CIDR network, ensuring no overlapping of IP ranges between groups.
+
+ALGORITHM-
+Step 1: START
+Step 2: READ the main network IP address in CIDR notation from the user (e.g., 10.0.0.0/16).
+Step 3: CALCULATE and PRINT the total number of available IP addresses in that main network block.
+Step 4: READ the total number of groups from the user.
+Step 5: INITIALIZE an empty list to store the requirements for each group.
+Step 6: Repeat the following for each group from 1 to groups:
+        a. READ the number of customers.
+        b. READ the number of addresses_per_customer.
+        c. CALCULATE total_required = customers * addresses_per_customer.
+d.	CALCULATE allocated_size by rounding up total_required to the nearest power of 2 (to form a valid subnet
+block).
+        e. STORE the group's ID, total_required, and allocated_size in the list.
+Step 7: SORT the list of groups in descending order based on their allocated_size (Largest blocks are allocated first).
+Step 8: INITIALIZE current_ip to the first numeric IP address of the main network block.
+Step 9: Repeat the following for each group in the sorted list:
+        a. IF current_ip + allocated_size exceeds the maximum boundary of the main network block, THEN:
+                PRINT "Error: Not enough IP addresses left" and BREAK the loop.
+        b. SET start_ip = current_ip.
+        c. SET end_ip = current_ip + allocated_size - 1.
+        d. CONVERT start_ip and end_ip back into standard IPv4 dotted-decimal format.
+        e. PRINT the group ID, total_required, allocated_size, start_ip, and end_ip.
+        f. UPDATE current_ip = current_ip + allocated_size (to move the pointer forward for the next group).
+Step 10: STOP
+
+
+
+
+
+
+
+CODE –
+import ipaddress
+import math
+
+def build_subnets():
+    print("--- SUBNET ALLOCATION CALCULATOR ---")
+    
+    try:
+        # 1. Get the main network block
+        cidr_input = input("Enter the IP address in CIDR notation (e.g., 10.0.0.0/16): ")
+        network = ipaddress.IPv4Network(cidr_input, strict=False)
+        total_available = network.num_addresses
+        
+        print(f"\nTotal available addresses in {cidr_input}: {total_available}")
+        
+        # 2. Get group requirements
+        num_groups = int(input("\nEnter the number of groups: "))
+        groups = []
+        
+        for i in range(num_groups):
+            print(f"\n--- Group {i+1} ---")
+            customers = int(input(f"Enter number of customers in Group {i+1}: "))
+            addrs_per_cust = int(input(f"Enter IP addresses needed per customer: "))
+            
+            total_required = customers * addrs_per_cust
+            
+            # Subnets must be powers of 2. We round up to the nearest valid subnet size.
+            if total_required > 0:
+                allocated_size = 2 ** math.ceil(math.log2(total_required))
+            else:
+                allocated_size = 0
+                
+            groups.append({
+                'id': i + 1,
+                'required': total_required,
+                'allocated': allocated_size
+            })
+            
+        # 3. Sort groups by largest requirement first (Standard VLSM practice)
+        groups.sort(key=lambda x: x['allocated'], reverse=True)
+        
+        # 4. Calculate and display the ranges
+        print("\n=========================================")
+        print("        SUBNET ALLOCATION RESULTS        ")
+        print("=========================================")
+        
+        # Start at the very first IP of the network block
+        current_ip_int = int(network.network_address) 
+        
+        for group in groups:
+            # Check if we have exceeded the available IPs in the main block
+            if current_ip_int + group['allocated'] > int(network.broadcast_address) + 1:
+                print(f"\nERROR: Not enough IP addresses left in {cidr_input} to allocate Group {group['id']}.")
+                break
+                
+            # Calculate Start and End IPs using integer math, then convert back to standard format
+            start_ip = ipaddress.IPv4Address(current_ip_int)
+            end_ip = ipaddress.IPv4Address(current_ip_int + group['allocated'] - 1)
+            
+            print(f"\nGroup {group['id']}:")
+            print(f"  - Addresses Required:  {group['required']}")
+            print(f"  - Actual Block Size:   {group['allocated']} (Rounded to nearest subnet boundary)")
+            print(f"  - Starting IP:         {start_ip}")
+            print(f"  - Ending IP:           {end_ip}")
+            
+            # Move the pointer forward for the next group's starting IP
+            current_ip_int += group['allocated']
+            
+    except ValueError as e:
+        print(f"\nError: Invalid IP address or input. Please check your typing. ({e})")
+        
+# Run the program
+if __name__ == "__main__":
+    build_subnets()
