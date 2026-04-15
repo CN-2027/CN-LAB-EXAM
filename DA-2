@@ -1,1 +1,244 @@
+EXP 1: IMPLEMENT THE FLOW CONTROL PROTOCOL “GO BACK N”
 
+AIM - To implement and analyze the Go-Back-N (GBN) sliding window protocol using socket programming to demonstrate reliable data transmission, cumulative acknowledgment, and error recovery via window-based retransmission.
+
+ALGORITHM - 
+Sender Side
+1.	Initialize: Set base = 0, next_seq_num = 0, and define window_size (N).
+2.	Send Loop:
+•	If next_seq_num < base + N, send the frame and increment next_seq_num.
+•	If the window is full (next_seq_num == base + N), wait for an acknowledgment (ACK).
+3.	Receive ACK:
+•	If a valid ACK for a frame is received, set base = ACK + 1.
+•	Slide the window forward to allow new frames to be sent.
+4.	Timeout Handling:
+•	If a timer expires before receiving an ACK for the base frame, reset next_seq_num = base.
+•	Go Back: Retransmit all frames currently in the window starting from the base.
+5.	Termination: Repeat until all frames are successfully acknowledged.
+Receiver Side
+1.	Initialize: Set expected_seq_num = 0.
+2.	Receive Frame:
+•	Wait for an incoming data frame.
+•	If the received frame_num == expected_seq_num:
+o	Accept the frame and pass it to the network layer.
+o	Send a Cumulative ACK for this frame.
+o	Increment expected_seq_num.
+•	Else (if the frame is out of order or corrupted):
+o	Discard the frame.
+o	Resend the ACK for the last successfully received frame (expected_seq_num - 1).
+3.	Repeat: Continue listening for the next expected frame
+
+CODE – 
+RECEIVER CODE
+
+import socket
+
+def start_receiver():
+    # Create UDP socket
+    rec_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    rec_sock.bind(('localhost', 12345))
+    
+    expected_seq = 0
+    print("Receiver is ready and waiting for frames...")
+
+    while True:
+        # Receive frame from sender
+        data, addr = rec_sock.recvfrom(1024)
+        frame_received = int(data.decode())
+
+        if frame_received == expected_seq:
+            print(f"-> [RECV] Frame {frame_received} accepted. Sending ACK.")
+            # Send cumulative ACK for the next expected frame
+            rec_sock.sendto(str(expected_seq).encode(), addr)
+            expected_seq += 1
+        else:
+            print(f"-> [DISCARD] Frame {frame_received} out of order. Expected {expected_seq}.")
+            # In GBN, we can re-send the ACK for the last successfully received frame
+            if expected_seq > 0:
+                rec_sock.sendto(str(expected_seq - 1).encode(), addr)
+
+if __name__ == "__main__":
+    start_receiver()
+
+SENDER CODE
+
+import socket
+import time
+
+def start_sender(total_frames, window_size):
+    send_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    send_sock.settimeout(2.0)  # Set timeout for ACK
+    addr = ('localhost', 12345)
+
+    base = 0
+    next_seq = 0
+
+    print(f"--- GBN Sender Started (Window Size: {window_size}) ---")
+
+    while base < total_frames:
+        # 1. Send frames within the window
+        while next_seq < base + window_size and next_seq < total_frames:
+            print(f"Sending Frame: {next_seq}")
+            send_sock.sendto(str(next_seq).encode(), addr)
+            next_seq += 1
+            time.sleep(0.5)
+
+        # 2. Wait for ACKs
+        try:
+            ack_data, _ = send_sock.recvfrom(1024)
+            ack_num = int(ack_data.decode())
+            
+            if ack_num >= base:
+                print(f"ACK {ack_num} received. Sliding window...")
+                base = ack_num + 1
+        except socket.timeout:
+            # 3. Handle Timeout: Retransmit everything in the current window
+            print(f"TIMEOUT! No ACK for Frame {base}. Retransmitting window...")
+            next_seq = base  # Reset next_seq to base to re-trigger sending
+
+    print("\nAll frames sent successfully!")
+    send_sock.close()
+
+if __name__ == "__main__":
+    start_sender(total_frames=10, window_size=3)
+
+
+
+EXP 2: IMPLEMENT THE FLOW CONTROL PROTOCOL “SELECTIVE REPEAT”
+AIM - To implement and analyze the Selective Repeat (SR) sliding window protocol using socket programming to
+demonstrate independent frame acknowledgment, out-of-order buffering, and efficient error recovery by retransmitting
+only the lost or corrupted frames.
+ALGORITHM –
+Sender Side
+1. Initialize: Define total_frames, window_size (N), and set base = 0, next_seq_num = 0. Create an array to track
+the ACK status of each frame.
+2. Transmission Phase:
+ While next_seq_num < base + N:
+o Send the frame next_seq_num.
+o Start an individual timer for that specific frame.
+o Increment next_seq_num.
+3. Reception Phase (On receiving an ACK):
+ Mark the specific frame as "Acknowledged."
+ If the ACK matches the base frame, slide the window forward to the next unacknowledged frame.
+4. Retransmission Phase (On Timeout):
+ If a timer expires for a specific frame without receiving its ACK, retransmit only that specific frame.
+ Restart the timer for that frame.
+5. Termination: Repeat until all frames are marked as "Acknowledged."
+
+Receiver Side
+1. Initialize: Define window_size (N) and set expected_base = 0. Create a buffer to store out-of-order frames.
+2. Process Incoming Frame:
+ Receive frame with sequence number n.
+ If n is within the current window (expected_base to expected_base + N - 1):
+o Send an individual ACK for frame n.
+o If the frame is not a duplicate, store it in the buffer.
+o If n == expected_base:
+ Deliver the frame and any subsequent consecutive buffered frames to the upper layer.
+ Slide the window base forward to the next missing frame.
+ Else if n is a previously received frame (n < expected_base):
+o Resend an ACK for frame n (to ensure the sender stops retransmitting).
+ Otherwise: Discard the frame.
+3. Repeat: Continue listening for the next incoming frame. 
+
+SENDER.PY
+import socket
+import threading
+import time
+
+SERVER_IP = '127.0.0.1'
+PORT = 8080
+WINDOW_SIZE = 4
+TOTAL_FRAMES = 10
+TIMEOUT = 2
+
+base = 0
+next_seq_num = 0
+ack_received = [False] * TOTAL_FRAMES
+lock = threading.Lock()
+
+def timer_thread(frame_idx, sock):
+    while not ack_received[frame_idx]:
+        time.sleep(TIMEOUT)
+        with lock:
+            if not ack_received[frame_idx]:
+                print(f"[Timeout] Retransmitting Frame {frame_idx}")
+                sock.sendto(str(frame_idx).encode(), (SERVER_IP, PORT))
+
+def receive_acks(sock):
+    global base
+    while base < TOTAL_FRAMES:
+        try:
+            data, _ = sock.recvfrom(1024)
+            ack = int(data.decode())
+            print(f"[ACK] Received for Frame {ack}")
+            with lock:
+                ack_received[ack] = True
+                while base < TOTAL_FRAMES and ack_received[base]:
+                    base += 1
+                    print(f"[Window] Slid to Base {base}")
+        except: break
+
+def start_sender():
+    global next_seq_num
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    
+    threading.Thread(target=receive_acks, args=(sock,), daemon=True).start()
+
+    while next_seq_num < TOTAL_FRAMES:
+        with lock:
+            if next_seq_num < base + WINDOW_SIZE:
+                print(f"[Send] Sending Frame {next_seq_num}")
+                sock.sendto(str(next_seq_num).encode(), (SERVER_IP, PORT))
+                threading.Thread(target=timer_thread, args=(next_seq_num, sock), daemon=True).start()
+                next_seq_num += 1
+        time.sleep(0.5)
+
+    while base < TOTAL_FRAMES: time.sleep(1)
+    print("All frames sent and acknowledged.")
+
+if __name__ == "__main__":
+    start_sender()
+
+RECEIVER.PY
+
+import socket
+import random
+
+PORT = 8080
+WINDOW_SIZE = 4
+expected_base = 0
+buffer = {}
+
+def start_receiver():
+    global expected_base
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.bind(('0.0.0.0', PORT))
+    print("Receiver is listening...")
+
+    while True:
+        data, addr = sock.recvfrom(1024)
+        n = int(data.decode())
+
+        # Simulate 20% packet loss for testing
+        if random.random() < 0.2:
+            print(f"[Drop] Simulating loss of Frame {n}")
+            continue
+
+        print(f"[Receive] Frame {n} arrived")
+
+        if expected_base <= n < expected_base + WINDOW_SIZE:
+            sock.sendto(str(n).encode(), addr)
+            if n not in buffer:
+                buffer[n] = f"Data_{n}"
+            
+            while expected_base in buffer:
+                print(f"[Deliver] Delivering Frame {expected_base}")
+                del buffer[expected_base]
+                expected_base += 1
+        
+        elif n < expected_base:
+            # Re-ACK previous frames to stop sender retransmission
+            sock.sendto(str(n).encode(), addr)
+
+if __name__ == "__main__":
+    start_receiver()
