@@ -1,1 +1,336 @@
+EXP 1: IMPLEMENT CRC ERROR CONTROL PROTOCOL 
 
+AIM - To implement and simulate the Cyclic Redundancy Check (CRC) error-detection algorithm using Python.
+
+ALGORITHM – 
+Step 1: Initialization
+•	Get the Dividend and the Divisor from the user.
+•	If inputs are in polynomial form, convert them into binary strings
+Step 2: Sender Side (Encoding)
+•	Let n be the length of the Divisor (G).
+•	Append (n-1) zeros to the end of the Dividend (D). This is the Padded Data.
+•	Perform Modulo-2 Division (using XOR operations) on the Padded Data using the Divisor (G):
+A.	Align the Divisor with the first '1' in the data.
+B.	Perform XOR between the bits.
+C.	Repeat until all bits of the original Dividend have been processed.
+•	The result of this division is the (n-1) bit Remainder (also called the Checksum).
+•	Append this Remainder to the original Dividend to create the Encoded Data (Transmitted Frame).
+Step 3: Receiver Side (Decoding/Verification)
+•	Receive the transmitted data frame (it may be modified if errors occurred).
+•	Perform the same Modulo-2 Division on the received data using the same Divisor (G).
+•	Check the resulting Remainder:
+A.	If Remainder is 0: The data is correct and accepted.
+B.	If Remainder is non-zero: An error occurred during transmission; the data is rejected.
+Step 4: Output
+•	Display the Data Key, the Encoded Data, and the final verification status (Correct/Error).
+
+CODE- 
+import re
+
+def poly_to_bin(poly):
+    """Converts a polynomial like x^3+x^1+1 into binary 1011."""
+    if all(c in '01' for c in poly):
+        return poly
+    
+    # Extract exponents from formats like x^3, x, or 1
+    terms = re.findall(r'x\^(\d+)|(x)|(1)', poly.replace(" ", ""))
+    degrees = []
+    for t in terms:
+        if t[0]: degrees.append(int(t[0])) # x^n
+        elif t[1]: degrees.append(1)        # x
+        elif t[2]: degrees.append(0)        # 1
+    
+    if not degrees: return "0"
+    max_deg = max(degrees)
+    res = ['0'] * (max_deg + 1)
+    for d in degrees:
+        res[max_deg - d] = '1'
+    return "".join(res)
+
+def crc_division(data, divisor):
+    """Performs Modulo-2 division and returns the remainder."""
+    data_bits = list(map(int, data))
+    divisor_bits = list(map(int, divisor))
+    n = len(divisor_bits)
+    
+    # Work through the data bits
+    for i in range(len(data) - n + 1):
+        if data_bits[i] == 1:
+            for j in range(n):
+                data_bits[i + j] ^= divisor_bits[j]
+                
+    remainder = "".join(map(str, data_bits[-(n-1):]))
+    return remainder if n > 1 else "0"
+
+def main():
+    # INPUTS
+    raw_dividend = input("Enter Dividend (Binary or x^3+x+1): ").strip()
+    raw_divisor = input("Enter Divisor (Binary or x^3+x+1): ").strip()
+    
+    dividend = poly_to_bin(raw_dividend)
+    divisor = poly_to_bin(raw_divisor)
+    
+    # SENDER SIDE
+    # Append n-1 zeros for initial division
+    padded_dividend = dividend + ('0' * (len(divisor) - 1))
+    remainder = crc_division(padded_dividend, divisor)
+    encoded_data = dividend + remainder
+    
+    print("\n--- SENDER SIDE ---")
+    print(f"Data Key: {dividend}")
+    print(f"Divisor:  {divisor}")
+    print(f"Encoded:  {encoded_data}")
+    
+    # RECEIVER SIDE
+    print("\n--- RECEIVER SIDE ---")
+    received = input(f"Enter received data (Default {encoded_data}): ").strip() or encoded_data
+    check_remainder = crc_division(received, divisor)
+    
+    if '1' not in check_remainder:
+        print("Status: Data is Correct (No Errors)")
+    else:
+        print(f"Status: Error Detected! (Remainder: {check_remainder})")
+
+if __name__ == "__main__":
+    main()
+
+
+EXP 2: IMPLEMENT CHECKSUM ERROR CONTROL PROTOCOL
+
+AIM - To implement and simulate the Internet Checksum error-detection algorithm using Python.
+
+ALGORITHM – 
+Step 1: Initialization
+•	Get the input data from the user in Decimal or Hexadecimal format.
+•	Store these values in a list (e.g., data_list).
+Step 2: Sender Side (Encoding)
+•	Initialize total_sum = 0.
+•	Iterate through each value in the data_list and add it to total_sum.
+•	Handle Carry Wrap-around:
+A.	While the total_sum exceeds 16 bits (>65535 or 0xFFFF):
+B.	Shift the overflow bits (bits beyond the 16th position) and add them back to the lower 16 bits of the sum.
+•	One's Complement:
+A.	Perform a bitwise NOT operation on the total_sum (flip all 16 bits).
+B.	This result is the Checksum.
+•	Transmit the original data along with this Checksum.
+Step 3: Receiver Side (Decoding/Verification)
+•	Receive the data list and the Checksum.
+•	Add all received data values plus the received Checksum to a new receiver_sum.
+•	Apply the same Carry Wrap-around logic to the receiver_sum.
+•	Perform the One's Complement on the final receiver_sum.
+•	Validation:
+A.	If the result is 0: The data is intact (No errors).
+B.	If the result is non-zero: An error occurred during transmission.
+Step 4: Output
+•	Display the generated Checksum (in Hex) and the final verification status (Success/Error).
+
+CODE- 
+def calculate_checksum(data):
+    """Calculates 16-bit Internet Checksum (One's Complement Sum)."""
+    # 1. Sum up all data values
+    total_sum = sum(data)
+    
+    # 2. Handle carry wrap-around (folding 32-bit into 16-bit)
+    while (total_sum >> 16):
+        total_sum = (total_sum & 0xFFFF) + (total_sum >> 16)
+        
+    # 3. Final One's Complement (flip bits)
+    return ~total_sum & 0xFFFF
+
+def main():
+    print("Enter values separated by spaces (e.g., 255 0xFF 1024 0x0A)")
+    user_input = input("Data: ").split()
+    
+    try:
+        # Convert input: hex if starts with '0x', else treats as decimal
+        data = [int(val, 16) if val.lower().startswith('0x') else int(val) for val in user_input]
+    except ValueError:
+        print("Invalid input! Please use numbers or hex format (0x...).")
+        return
+
+    # SENDER SIDE
+    checksum = calculate_checksum(data)
+    print(f"\n[SENDER SIDE]")
+    print(f"Data List: {data}")
+    print(f"Generated Checksum: {hex(checksum).upper()}")
+
+    # RECEIVER SIDE
+    print("\n[RECEIVER SIDE]")
+    # Simulation: Verification adds the data + the checksum
+    # If correct, the result of calculate_checksum(data + [checksum]) should be 0
+    final_check = calculate_checksum(data + [checksum])
+    
+    if final_check == 0:
+        print("Status: SUCCESS (Data is correct)")
+    else:
+        print(f"Status: ERROR DETECTED (Result: {hex(final_check)})")
+
+if __name__ == "__main__":
+    main()
+
+
+
+EXP 3: IMPLEMENT CSMA/CD ACCESS CONTROL MECHANISM
+
+AIM - To implement and simulate the CSMA/CD protocol in Python, demonstrating how network stations sense a shared medium, detect packet collisions during transmission, and resolve them using the Binary Exponential Backoff algorithm.
+
+ALGORITHM – 
+Step 1: Preparation
+	Initialize the number of transmission attempts, n = 0.
+	Set the maximum number of allowed attempts (usually 15 or 16).
+Step 2: Carrier Sensing (Listen Before Transmitting)
+	The station senses the communication medium (channel).
+	If the medium is busy: The station continues to sense until the channel becomes idle.
+	If the medium is idle: Wait for a small Inter-Frame Gap (IFG) and then begin transmission.
+Step 3: Collision Detection (Listen While Transmitting)
+	While sending data, the station constantly monitors the medium for a collision.
+	Case A: No collision detected
+	Complete the transmission successfully and reset n = 0.
+	Case B: Collision detected
+	Immediately stop transmitting the data.
+	Transmit a Jam Signal to ensure all other stations recognize the collision.
+	Proceed to Step 4 (Backoff).
+Step 4: Collision Resolution (Binary Exponential Backoff)
+	Increment the attempt counter: n = n + 1.
+	Check limits: If n exceeds the maximum attempts, abort the transmission (Report Failure).
+	Calculate Backoff:
+	Choose a random integer K from the range [0, 2^n-1]
+	Wait: The station waits for K ×Slot Time (where Slot Time is a fixed network constant).
+	Retry: Return to Step 2 to sense the medium again.
+Step 5: Termination
+	The process ends when the frame is successfully transmitted or the maximum retry limit is reached
+
+CODE - 
+import random
+import time
+
+def simulate_csma_cd(station_id, max_attempts=15):
+    """
+    Simulates the CSMA/CD process for a single station.
+    """
+    print(f"\n--- Station {station_id} ready to transmit ---")
+    
+    for attempt in range(1, max_attempts + 1):
+        print(f"Attempt {attempt}: Sensing the medium...")
+        
+        # 1. Carrier Sensing: Check if the channel is idle
+        # (Simulating idle/busy status)
+        is_busy = random.choice([True, False])
+        
+        if is_busy:
+            print("Medium is BUSY. Waiting for it to become idle...")
+            time.sleep(1)
+            continue  # Re-sense the medium
+        
+        print("Medium is IDLE. Starting transmission...")
+        
+        # 2. Collision Detection: Monitor during transmission
+        # (Simulating a collision chance)
+        collision_occurred = random.random() < 0.4  # 40% chance of collision
+        
+        if not collision_occurred:
+            print(f"SUCCESS: Station {station_id} transmitted successfully!")
+            return True
+        else:
+            # 3. Jam Signal & Collision Resolution
+            print("COLLISION DETECTED! Sending Jam signal...")
+            
+            # Binary Exponential Backoff
+            # Choose a random k from [0, 2^n - 1]
+            # n is limited to 10 even if attempts reach 15
+            n = min(attempt, 10) 
+            k = random.randint(0, 2**n - 1)
+            backoff_time = k * 0.1  # Simulating slot time (e.g., 0.1s)
+            
+            print(f"Backing off for {backoff_time:.2f} seconds (k={k})...")
+            time.sleep(backoff_time)
+            
+    print(f"FAILURE: Station {station_id} aborted after {max_attempts} attempts.")
+    return False
+
+if __name__ == "__main__":
+    # Simulate a few stations
+    for i in range(1, 4):
+        simulate_csma_cd(station_id=i)
+        time.sleep(1)
+
+
+
+EXP 4: IMPLEMENT CSMA/CA ACCESS CONTROL MECHANISM
+
+AIM - To implement and simulate the CSMA/CA protocol in Python to demonstrate collision avoidance techniques in wireless networks, including carrier sensing, the RTS/CTS handshake mechanism, and the ACK feedback loop.
+
+ALGORITHM – 
+Step 1: Initialization
+•	Set the maximum number of retransmission attempts.
+•	Define the DIFS (Distributed Inter-Frame Space) and SIFS (Short Inter-Frame Space) time constants.
+Step 2: Carrier Sensing (Listen Before Talk)
+•	The station senses the medium.
+•	If the medium is busy: Wait until the channel becomes idle.
+•	If the medium is idle: Wait for a duration equal to DIFS.
+•	If the channel remains idle during DIFS, proceed to Step 3. Otherwise, return to sensing.
+Step 3: Backoff Mechanism (Collision Avoidance)
+•	Choose a random Backoff Timer (number of slots) from the range [0, W-1], where W is the Contention Window.
+•	Decrease the timer only while the medium is idle.
+•	If the medium becomes busy, freeze the timer and resume only after the medium is idle again for a DIFS period.
+•	When the timer reaches zero, the station is ready to transmit.
+Step 4: Virtual Carrier Sensing (Handshaking - Optional but Recommended)
+•	Send an RTS (Request to Send) frame to the receiver.
+•	Wait for a CTS (Clear to Send) frame from the receiver (after a SIFS interval).
+•	If CTS is received: The medium is reserved; proceed to transmit data.
+•	If CTS is not received: Assume a collision occurred, increment backoff parameters, and return to Step 3.
+Step 5: Data Transmission and ACK
+•	Transmit the Data Frame.
+•	Wait for an ACK (Acknowledgement) from the receiver.
+•	If ACK is received: Transmission is successful. Reset the contention window.
+•	If ACK is not received: Assume the data was lost or collided. Increase the contention window (Exponential Backoff) and return to Step 3.
+Step 6: Termination
+•	The process ends when the ACK is received or the maximum retry limit is reached.
+
+CODE – 
+import random
+import time
+
+def simulate_csma_ca(station_name):
+    print(f"\n[Station {station_name}] wants to send data...")
+    
+    # 1. Carrier Sensing (DIFS - DCF Inter-Frame Space)
+    print(f"Sensing medium (DIFS)...")
+    is_busy = random.choice([True, False])
+    
+    if is_busy:
+        print("Medium is BUSY. Entering Backoff state...")
+        # 2. Backoff Mechanism
+        slots = random.randint(1, 10)
+        print(f"Backing off for {slots} slots to avoid collision.")
+        time.sleep(slots * 0.1)
+    
+    print("Medium is IDLE.")
+    
+    # 3. Virtual Carrier Sensing (RTS/CTS Exchange)
+    print("Sending RTS (Request to Send)...")
+    time.sleep(0.5)
+    
+    # Simulate if the Access Point is clear to receive
+    cts_received = random.random() > 0.2 # 80% chance of clearing
+    
+    if cts_received:
+        print("Received CTS (Clear to Send). Starting transmission...")
+        
+        # 4. Actual Data Transmission
+        time.sleep(1) 
+        
+        # 5. Acknowledgement (ACK)
+        print("Transmission complete. Waiting for ACK...")
+        time.sleep(0.3)
+        print(f"SUCCESS: ACK received by Station {station_name}!")
+        return True
+    else:
+        print("FAILURE: CTS not received (Possible Collision or Busy AP).")
+        return False
+
+if __name__ == "__main__":
+    stations = ['A', 'B']
+    for s in stations:
+        simulate_csma_ca(s)
+        print("-" * 30)
